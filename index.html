@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>RedCap</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#b10012">
+  <link rel="icon" href="assets/icons/favicon.ico">
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <img src="assets/icons/icon-192.png" alt="RedCap icon" width="28" height="28">
+      <h1>RedCap</h1>
+    </div>
+    <nav class="tabs">
+      <button class="tab-btn" data-tab="tab-dashboard" aria-controls="tab-dashboard">Dashboard</button>
+      <button class="tab-btn" data-tab="tab-flow" aria-controls="tab-flow">Flow</button>
+      <button class="tab-btn" data-tab="tab-mi" aria-controls="tab-mi">M&amp;I</button>
+      <button class="tab-btn" data-tab="tab-hydrants" aria-controls="tab-hydrants">Hydrants</button>
+      <button class="tab-btn" data-tab="tab-settings" aria-controls="tab-settings">Settings</button>
+    </nav>
+  </header>
+  <main id="viewport">
+    <section id="tab-dashboard" class="tab active">
+      <div class="card center">
+        <img src="assets/icons/icon-512.png" class="hero-icon">
+        <h2>RedCap</h2><p class="muted">Hydrant Management</p>
+      </div>
+      <div class="card">
+        <div class="toolbar"><h3>Totals</h3><button id="dashRefresh" class="btn">Refresh</button></div>
+        <div id="districtTotals" class="grid g2"></div>
+        <div id="statusTotals" class="status-grid"></div>
+      </div>
+    </section>
+    <section id="tab-flow" class="tab">
+      <form id="flowForm" class="form">
+        <details class="block" open>
+          <summary>Required: Project/Location · Hydrant # · Inspector · Date</summary>
+          <div class="grid g2">
+            <label>Project/Location<input id="f_location"></label>
+            <label>Inspector<input id="f_inspector"></label>
+            <label>Hydrant #<input id="f_hydrant" inputmode="numeric" pattern="\d*"></label>
+            <label>Date<input id="f_date" type="date"></label>
+          </div>
+          <p class="muted small">These must be filled before other sections unlock.</p>
+        </details>
+        <details class="block" id="flowSection2" disabled>
+          <summary>Pressures</summary>
+          <div class="grid g3">
+            <label>Static (psi)<input id="f_static" inputmode="decimal"></label>
+            <label>Residual (psi)<input id="f_residual" inputmode="decimal"></label>
+            <label>Pitot (psi)<input id="f_pitot" inputmode="decimal"></label>
+          </div>
+        </details>
+        <details class="block" id="flowSection3" disabled>
+          <summary>Outlets</summary>
+          <div id="outlets">
+            <div class="grid g3 outlet-row">
+              <label>Diameter (in)<input class="o_d" value="2.5" inputmode="decimal"></label>
+              <label>C (coeff)<input class="o_c" value="0.9" inputmode="decimal"></label>
+              <label># Outlets<input class="o_n" value="1" inputmode="numeric" pattern="\d*"></label>
+            </div>
+          </div>
+          <button type="button" id="addOutlet" class="btn ghost">+ Add Outlet</button>
+        </details>
+        <div class="results card">
+          <div class="grid g2">
+            <div><div class="result-label">Total Discharge (gpm)</div><div id="r_total" class="result-value">—</div></div>
+            <div><div class="result-label">Available Fire Flow (gpm)</div><div id="r_aff" class="result-value">—</div></div>
+          </div>
+          <p class="muted small">AFF uses 20 psi @ residual.</p>
+        </div>
+        <label>Notes<textarea id="f_notes" rows="3"></textarea></label>
+        <div class="lower-bar" id="lowerBar">
+          <button type="button" id="calc" class="btn primary">Calculate</button>
+          <button type="button" id="record" class="btn">Record Entry</button>
+        </div>
+      </form>
+    </section>
+    <section id="tab-mi" class="tab">
+      <form id="miForm" class="form">
+        <details class="block" open>
+          <summary>Required: Project/Location · Hydrant # · Inspector · Date</summary>
+          <div class="grid g2">
+            <label>Project/Location<input id="m_location"></label>
+            <label>Inspector<input id="m_inspector"></label>
+            <label>Hydrant #<input id="m_hydrant" inputmode="numeric" pattern="\d*"></label>
+            <label>Date<input id="m_date" type="date"></label>
+          </div>
+        </details>
+        <details class="block">
+          <summary>Status & Notes</summary>
+          <div class="grid g2">
+            <label>Status<select id="m_status"></select></label>
+            <label>Notes<textarea id="m_notes" rows="3"></textarea></label>
+          </div>
+        </details>
+        <details class="block"><summary>Inspection Checklist</summary><div id="m_checklist" class="checklist"></div></details>
+        <details class="block"><summary>Maintenance Tasks</summary><div id="m_tasks" class="checklist"></div></details>
+        <div class="toolbar stick-bottom"><button type="button" id="miRecord" class="btn primary">Record M&amp;I</button></div>
+      </form>
+    </section>
+    <section id="tab-hydrants" class="tab">
+      <div class="card">
+        <div class="hydrants-toolbar"><input id="h_search" class="search" placeholder="Search hydrants…"><button id="h_clear" class="btn ghost">Clear</button></div>
+        <div class="table-wrap">
+          <div class="table head sticky"><div class="row head"><div>Hydrant#</div><div>District</div><div>Location</div><div>Status</div></div></div>
+          <div id="h_rows" class="table body"></div>
+        </div>
+      </div>
+    </section>
+    <section id="tab-settings" class="tab">
+      <div class="card">
+        <details><summary>Import / Export</summary>
+          <div class="grid g2">
+            <label>Import Master CSV<input id="imp_master" type="file" accept=".csv"></label>
+            <label>Import Detail CSV<input id="imp_detail" type="file" accept=".csv"></label>
+          </div>
+          <div class="toolbar">
+            <button id="export_json" class="btn">Export JSON</button>
+            <button id="export_csv" class="btn ghost">Export CSV</button>
+          </div>
+        </details>
+        <details><summary>Status List & Colors</summary><div id="statusEditor"></div><button id="addStatus" class="btn ghost">+ Add Status</button></details>
+        <details><summary>Inspection Checklist Template</summary><div id="checklistEditor"></div><button id="addCheck" class="btn ghost">+ Add Item</button></details>
+        <details><summary>Maintenance Tasks Template</summary><div id="tasksEditor"></div><button id="addTask" class="btn ghost">+ Add Task</button></details>
+      </div>
+    </section>
+  </main>
+  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+  <script src="scripts/app.js"></script>
+</body>
+</html>
