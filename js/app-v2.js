@@ -250,8 +250,8 @@ async function importCSV(){
 }
 
 // ===== Boot =====
-function showLogin(){ $("#loginScreen").hidden=false; $("#app").hidden=true }
-function showApp(){ $("#loginScreen").hidden=true; $("#app").hidden=false; goto(location.hash.replace(/^#\/?/,"")||"dashboard"); initFlow(); initMI(); bindNav(); registerSW(); }
+function showLogin(){ $("#loginScreen").style.display=""; $("#app").style.display="none" }
+function showApp(){ $("#loginScreen").style.display="none"; $("#app").style.display=""; goto(location.hash.replace(/^#\/?/,"")||"dashboard"); initFlow(); initMI(); bindNav(); registerSW(); }
 
 function initLogin(){
   const submit = async ()=>{

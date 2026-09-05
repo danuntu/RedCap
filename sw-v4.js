@@ -1,6 +1,6 @@
 
-const CACHE='redcap-v3';
-const ASSETS=['./','./index.html','./css/styles.css','./js/app.js','./manifest.webmanifest','./assets/icons/icon-192.png','./assets/icons/icon-512.png','./assets/icons/favicon.ico'];
+const CACHE='redcap-v5';
+const ASSETS=['./','./index.html','./css/styles.css','./js/app-v5.js','./manifest.webmanifest','./assets/icons/icon-192.png','./assets/icons/icon-512.png','./assets/icons/favicon.ico'];
 self.addEventListener('install',e=>{self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)))});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([self.clients.claim(), caches.keys().then(keys=>Promise.all(keys.map(k=>k===CACHE?null:caches.delete(k))))]))});
 self.addEventListener('fetch',e=>{

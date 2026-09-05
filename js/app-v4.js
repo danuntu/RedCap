@@ -61,9 +61,10 @@ async function authFetch(url, opts={}){
 
 // ===== API =====
 const Api = {
-  async listHydrants(q){
+  async listHydrants(q, districtId){
     const url = new URL(`${API_BASE}/hydrants`);
     if(q) url.searchParams.set("q", q);
+    if(districtId) url.searchParams.set("district_id", districtId);
     const res = await authFetch(url);
     if(!res.ok) throw new Error("Failed to load hydrants");
     return res.json();
@@ -90,6 +91,11 @@ const Api = {
     const res = await authFetch(`${API_BASE}/inspections`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
     if(!res.ok) throw new Error("Failed to save inspection");
     return res.json();
+  },
+  async listDistricts(){
+    const res = await authFetch(`${API_BASE}/districts`);
+    if(!res.ok) throw new Error("Failed to load districts");
+    return res.json();
   }
 };
 
@@ -103,13 +109,23 @@ const STATE={
   checklist:LS.get("redcap.checklist",["Caps present/intact","No leaks","Threads clean"]),
   maint:LS.get("redcap.maint",["Lubricate stem","Paint touch-up","Replace gaskets"]),
   hydrants:[],
+  districts:[],
   route:"dashboard"
 };
 function saveLocalConfig(){ LS.set("redcap.statuses",STATE.statuses); LS.set("redcap.checklist",STATE.checklist); LS.set("redcap.maint",STATE.maint) }
 
 function toast(msg,{bg,ms}={}){ const t=document.createElement("div"); t.className="toast"; if(bg)t.style.background=bg; t.textContent=msg; $("#toastbox").appendChild(t); setTimeout(()=>t.remove(), ms??3500) }
 
-function findHydrantByNumber(num){ return STATE.hydrants.find(h=>String(h.hydrant_number)===String(num)) }
+function districtName(id){ return STATE.districts.find(d=>d.id===id)?.name || "—" }
+function findHydrant(districtId, num){ return STATE.hydrants.find(h=>h.district_id===districtId && String(h.hydrant_number)===String(num)) }
+async function loadDistricts(){
+  try{ STATE.districts = await Api.listDistricts() }catch(e){ toast(e.message,{bg:"#b91c1c"}); return }
+  const opts = STATE.districts.map(d=>`<option value="${d.id}">${d.name}</option>`).join("");
+  $("#flowDistrict").innerHTML = opts;
+  $("#miDistrict").innerHTML = opts;
+  $("#importDistrict").innerHTML = opts;
+  $("#hydrDistrict").innerHTML = `<option value="">All districts</option>` + opts;
+}
 
 // ===== Nav =====
 function goto(tab){
@@ -123,7 +139,7 @@ function bindNav(){ $$(".tabbtn").forEach(b=>b.addEventListener("click",()=>goto
 // ===== Dashboard =====
 async function renderDashboard(){
   try{ STATE.hydrants = await Api.listHydrants() }catch(e){ toast(e.message,{bg:"#b91c1c"}); return }
-  const byD=new Map(); STATE.hydrants.forEach(h=>{const d=h.district||"—"; byD.set(d,(byD.get(d)||0)+1)});
+  const byD=new Map(); STATE.hydrants.forEach(h=>{const d=districtName(h.district_id); byD.set(d,(byD.get(d)||0)+1)});
   const k=$("#kpi"); k.innerHTML=""; byD.forEach((c,d)=>{const t=document.createElement("div"); t.className="tile"; t.innerHTML=`<h3 style='margin:0 0 6px;color:#6b7280'>${d}</h3><div style='font-size:28px;font-weight:800'>${c}</div>`; k.appendChild(t)});
   const legend=$("#statusLegend"); const counts={}; STATE.statuses.forEach(s=>counts[s.id]=0);
   STATE.hydrants.forEach(h=>{ if(h.status && counts.hasOwnProperty(h.status)) counts[h.status]++ });
@@ -132,12 +148,60 @@ async function renderDashboard(){
 
 // ===== Hydrants list =====
 async function renderHydrants(){
+  hideHydrantDetail();
   const q=($("#hydrSearch")?.value||"").trim();
-  try{ STATE.hydrants = await Api.listHydrants(q) }catch(e){ toast(e.message,{bg:"#b91c1c"}); return }
+  const districtId=$("#hydrDistrict")?.value||"";
+  try{ STATE.hydrants = await Api.listHydrants(q, districtId||undefined) }catch(e){ toast(e.message,{bg:"#b91c1c"}); return }
   const rows=$("#hydrRows"); rows.innerHTML="";
-  STATE.hydrants.forEach(h=>{const r=document.createElement("div"); r.className="row"; const meta=STATE.statuses.find(s=>s.id===h.status)||{name:h.status||"—",color:"#e5e7eb"}; r.innerHTML=`<div>${h.hydrant_number??""}</div><div>${h.street_address??h.label??""}</div><div>${h.district??""}</div><div>${h.make??""}</div><div><span style="padding:2px 6px;border-radius:999px;border:1px solid ${meta.color};color:${meta.color};font-size:12px">${meta.name}</span></div>`; r.addEventListener("click",()=>{goto("flow"); $("#flowHydrant").value=h.hydrant_number??""; $("#flowProject").value=h.street_address??h.label??""; $("#flowInspector").focus();}); rows.appendChild(r)});
+  STATE.hydrants.forEach(h=>{const r=document.createElement("div"); r.className="row"; r.style.cursor="pointer"; const meta=STATE.statuses.find(s=>s.id===h.status)||{name:h.status||"—",color:"#e5e7eb"}; r.innerHTML=`<div>${h.hydrant_number??""}</div><div>${h.street_address??h.label??""}</div><div>${districtName(h.district_id)}</div><div>${h.make??""}</div><div><span style="padding:2px 6px;border-radius:999px;border:1px solid ${meta.color};color:${meta.color};font-size:12px">${meta.name}</span></div>`; r.addEventListener("click",()=>showHydrantDetail(h)); rows.appendChild(r)});
 }
 $("#hydrSearch")?.addEventListener("input",renderHydrants); $("#hydrClear")?.addEventListener("click",()=>{$("#hydrSearch").value=""; renderHydrants()});
+$("#hydrDistrict")?.addEventListener("change",renderHydrants);
+
+// ===== Hydrant detail =====
+let currentDetailHydrant=null;
+function hideHydrantDetail(){ $("#hydrListView").style.display=""; $("#hydrDetailView").hidden=true; currentDetailHydrant=null; }
+async function showHydrantDetail(h){
+  currentDetailHydrant=h;
+  $("#hydrListView").style.display="none"; $("#hydrDetailView").hidden=false;
+  const meta=STATE.statuses.find(s=>s.id===h.status)||{name:h.status||"—",color:"#e5e7eb"};
+  $("#hydrDetailFields").innerHTML=`
+    <h3 style="margin:0 0 10px">Hydrant #${h.hydrant_number??"(unnumbered)"} — ${districtName(h.district_id)}</h3>
+    <div class="grid g3">
+      <div><label>Location</label><div>${h.street_address??h.label??"—"}</div></div>
+      <div><label>Status</label><div><span style="padding:2px 6px;border-radius:999px;border:1px solid ${meta.color};color:${meta.color};font-size:12px">${meta.name}</span></div></div>
+      <div><label>Make</label><div>${h.make||"—"}</div></div>
+      <div><label>Line Size</label><div>${h.line_size||"—"}</div></div>
+      <div><label>Top</label><div>${h.top||"—"}</div></div>
+      <div><label>Caps</label><div>${h.caps||"—"}</div></div>
+      <div><label>Coordinates</label><div>${h.latitude}, ${h.longitude}</div></div>
+      <div style="grid-column:span 2"><label>Notes</label><div>${h.notes||"—"}</div></div>
+    </div>`;
+  $("#hydrGoFlow").onclick=()=>{ goto("flow"); $("#flowDistrict").value=h.district_id; $("#flowHydrant").value=h.hydrant_number??""; $("#flowProject").value=h.street_address??h.label??""; $("#flowInspector").focus(); };
+  $("#hydrGoMI").onclick=()=>{ goto("mi"); $("#miDistrict").value=h.district_id; $("#miHydrant").value=h.hydrant_number??""; $("#miProject").value=h.street_address??h.label??""; $("#miInspector").focus(); };
+  const hist=$("#hydrDetailHistory");
+  hist.innerHTML="Loading…";
+  try{
+    const records=await Api.listInspections(h.id);
+    records.sort((a,b)=>b.inspection_date.localeCompare(a.inspection_date));
+    if(!records.length){ hist.innerHTML=`<div class="muted">No history recorded yet.</div>`; return }
+    hist.innerHTML="";
+    records.forEach(r=>{
+      const row=document.createElement("div"); row.className="card"; row.style.marginBottom="8px";
+      const flags=r.flags_jsonb||{};
+      const review=flags.needs_review?`<div style="color:#b91c1c;font-weight:600">⚠ ${flags.needs_review.replace(/_/g," ")}</div>`:"";
+      let detail="";
+      if(r.inspection_type==="flow"){
+        detail=`Static ${flags.static??"—"} · Residual ${flags.residual??"—"} · Pitot ${flags.pitot??"—"} · Discharge ${flags.total_discharge??flags.discharge??"—"} · AFF ${flags.aff??"—"}`;
+      } else {
+        detail=`Status: ${r.status??"—"}`;
+      }
+      row.innerHTML=`<div style="display:flex;justify-content:space-between"><b>${r.inspection_date}</b><span style="color:var(--muted)">${r.inspection_type==="flow"?"Flow Test":"M&I"}</span></div><div style="margin-top:4px">${detail}</div>${r.notes?`<div style="margin-top:4px;color:var(--muted)">${r.notes}</div>`:""}${review}`;
+      hist.appendChild(row);
+    });
+  }catch(e){ hist.innerHTML=`<div style="color:#b91c1c">${e.message}</div>` }
+}
+$("#hydrBack")?.addEventListener("click",hideHydrantDetail);
 
 // ===== Flow =====
 function initFlow(){
@@ -145,17 +209,17 @@ function initFlow(){
   $("#flowCalc").addEventListener("click",doFlowCalc);
   $("#flowSave").addEventListener("click",saveFlow);
   $("#flowClear").addEventListener("click",clearFlow);
-  const requireFilled=()=>{const ok=($("#flowProject").value&&$("#flowInspector").value&&$("#flowHydrant").value&&$("#flowDate").value); $("#flow-sec-2").open=ok?$("#flow-sec-2").open:false; $("#flow-sec-3").open=ok?$("#flow-sec-3").open:false; ["#flow-sec-2","#flow-sec-3"].forEach(id=>$(id).querySelector("summary").style.opacity=ok?1:.5)};
-  ["#flowProject","#flowInspector","#flowHydrant","#flowDate"].forEach(id=>$(id).addEventListener("input",requireFilled)); requireFilled();
+  const requireFilled=()=>{const ok=($("#flowDistrict").value&&$("#flowProject").value&&$("#flowInspector").value&&$("#flowHydrant").value&&$("#flowDate").value); $("#flow-sec-2").open=ok?$("#flow-sec-2").open:false; $("#flow-sec-3").open=ok?$("#flow-sec-3").open:false; ["#flow-sec-2","#flow-sec-3"].forEach(id=>$(id).querySelector("summary").style.opacity=ok?1:.5)};
+  ["#flowDistrict","#flowProject","#flowInspector","#flowHydrant","#flowDate"].forEach(id=>$(id).addEventListener("input",requireFilled)); requireFilled();
   if(!$("#flowDate").value){ const t=new Date(); $("#flowDate").value=t.toISOString().slice(0,10) }
 }
 function addOutletRow(){ const div=document.createElement("div"); div.className="outlet grid g3"; div.innerHTML=`<div><label>Outlet Diameter (in)</label><input type="number" step="0.1" value="2.5"></div><div><label>Coefficient C</label><input type="number" step="0.01" value="0.9"></div><div><label># Outlets Flowing</label><input type="number" value="1"></div>`; $("#outletsWrap").appendChild(div) }
 function collectOutlets(){ const outlets=[{d:parseFloat($("#flowDiameter").value||"2.5"),c:parseFloat($("#flowCoeff").value||"0.9"),n:parseInt($("#flowCount").value||"1",10)}]; $$("#outletsWrap .outlet").forEach(o=>{const [d,c,n]=o.querySelectorAll("input"); outlets.push({d:parseFloat(d.value||"2.5"),c:parseFloat(c.value||"0.9"),n:parseInt(n.value||"1",10)})}); return outlets}
 function doFlowCalc(){ const pitot=parseFloat($("#flowPitot").value||"0"), residual=parseFloat($("#flowResidual").value||"0"), staticP=parseFloat($("#flowStatic").value||"0"), outlets=collectOutlets(); let totalQ=0; outlets.forEach(o=>{ const q=29.83*o.c*(o.d**2)*(pitot>0?Math.sqrt(pitot):0)*(o.n||1); totalQ+=q }); let aff="-"; if(staticP>0&&residual>0&&staticP>residual){ aff=Math.round(totalQ*((staticP-20)/(staticP-residual))) } $("#resDischarge").textContent=Math.round(totalQ); $("#resAFF").textContent=aff; $("#flowResults").style.display="block"; return {totalQ, aff} }
 async function saveFlow(){
-  const ok=($("#flowProject").value&&$("#flowInspector").value&&$("#flowHydrant").value&&$("#flowDate").value); if(!ok){toast("Fill section 1 first.",{bg:"#b91c1c"});return}
-  const hydrant = findHydrantByNumber($("#flowHydrant").value);
-  if(!hydrant){ toast("Unknown hydrant # — check Hydrants list.",{bg:"#b91c1c"}); return }
+  const ok=($("#flowDistrict").value&&$("#flowProject").value&&$("#flowInspector").value&&$("#flowHydrant").value&&$("#flowDate").value); if(!ok){toast("Fill section 1 first.",{bg:"#b91c1c"});return}
+  const hydrant = findHydrant($("#flowDistrict").value, $("#flowHydrant").value);
+  if(!hydrant){ toast("Unknown hydrant # for that district — check Hydrants list.",{bg:"#b91c1c"}); return }
   const {totalQ,aff} = doFlowCalc();
   try{
     await Api.createInspection({
@@ -172,8 +236,8 @@ function clearFlow(){ ["#flowProject","#flowInspector","#flowHydrant","#flowDate
 function initMI(){
   const sel=$("#miStatus"); sel.innerHTML=""; STATE.statuses.forEach(s=>{const o=document.createElement("option"); o.value=s.id; o.textContent=s.name; sel.appendChild(o)});
   renderMiChecklist(); renderMiTasks();
-  const requireFilled=()=>{const ok=($("#miProject").value&&$("#miInspector").value&&$("#miHydrant").value&&$("#miDate").value); ["#mi-sec-2","#mi-sec-3","#mi-sec-4"].forEach(id=>{const sec=$(id); sec.open=ok?sec.open:false; sec.querySelector("summary").style.opacity=ok?1:.5})};
-  ["#miProject","#miInspector","#miHydrant","#miDate"].forEach(id=>$(id).addEventListener("input",requireFilled)); requireFilled();
+  const requireFilled=()=>{const ok=($("#miDistrict").value&&$("#miProject").value&&$("#miInspector").value&&$("#miHydrant").value&&$("#miDate").value); ["#mi-sec-2","#mi-sec-3","#mi-sec-4"].forEach(id=>{const sec=$(id); sec.open=ok?sec.open:false; sec.querySelector("summary").style.opacity=ok?1:.5})};
+  ["#miDistrict","#miProject","#miInspector","#miHydrant","#miDate"].forEach(id=>$(id).addEventListener("input",requireFilled)); requireFilled();
   if(!$("#miDate").value){ $("#miDate").value=new Date().toISOString().slice(0,10) }
   if(!$("#miSave")){ const save=document.createElement("div"); save.style="margin-top:8px"; save.innerHTML=`<button id="miSave" class="btn">Save M&I</button>`; $("#tab-mi").appendChild(save); }
   $("#miSave").onclick=saveMI;
@@ -181,9 +245,9 @@ function initMI(){
 function renderMiChecklist(){ const wrap=$("#miChecklist"); wrap.innerHTML=""; STATE.checklist.forEach((t,i)=>{const row=document.createElement("label"); row.style="display:flex;gap:8px;align-items:center;padding:6px 0"; row.innerHTML=`<input type="checkbox" id="chk_${i}"><span>${t}</span>`; wrap.appendChild(row)}) }
 function renderMiTasks(){ const wrap=$("#miTasks"); wrap.innerHTML=""; STATE.maint.forEach((t,i)=>{const row=document.createElement("label"); row.style="display:flex;gap:8px;align-items:center;padding:6px 0"; row.innerHTML=`<input type="checkbox" id="mnt_${i}"><span>${t}</span>`; wrap.appendChild(row)}) }
 async function saveMI(){
-  const ok=($("#miProject").value&&$("#miInspector").value&&$("#miHydrant").value&&$("#miDate").value); if(!ok){toast("Fill section 1 first.",{bg:"#b91c1c"});return}
-  const hydrant = findHydrantByNumber($("#miHydrant").value);
-  if(!hydrant){ toast("Unknown hydrant # — check Hydrants list.",{bg:"#b91c1c"}); return }
+  const ok=($("#miDistrict").value&&$("#miProject").value&&$("#miInspector").value&&$("#miHydrant").value&&$("#miDate").value); if(!ok){toast("Fill section 1 first.",{bg:"#b91c1c"});return}
+  const hydrant = findHydrant($("#miDistrict").value, $("#miHydrant").value);
+  if(!hydrant){ toast("Unknown hydrant # for that district — check Hydrants list.",{bg:"#b91c1c"}); return }
   const status = $("#miStatus").value||null;
   try{
     await Api.createInspection({
@@ -196,7 +260,7 @@ async function saveMI(){
   }catch(e){ toast(e.message,{bg:"#b91c1c"}) }
 }
 function hydrantToApiIn(h){
-  return { hydrant_number:h.hydrant_number, label:h.label, street_address:h.street_address, city:h.city, state:h.state, postal_code:h.postal_code, latitude:h.latitude, longitude:h.longitude, status:h.status, flow_gpm:h.flow_gpm, notes:h.notes, district:h.district, make:h.make, line_size:h.line_size, top:h.top, caps:h.caps, test_needed:h.test_needed };
+  return { district_id:h.district_id, hydrant_number:h.hydrant_number, label:h.label, street_address:h.street_address, city:h.city, state:h.state, postal_code:h.postal_code, latitude:h.latitude, longitude:h.longitude, status:h.status, flow_gpm:h.flow_gpm, notes:h.notes, make:h.make, line_size:h.line_size, top:h.top, caps:h.caps };
 }
 
 // ===== Settings =====
@@ -230,6 +294,8 @@ async function exportBackup(){
 }
 function parseCSV(text){ const lines=text.split(/\r?\n/).filter(l=>l.trim().length); const headers=lines.shift().split(",").map(h=>h.trim().replace(/(^"|"$)/g,"")); const out=[]; lines.forEach(line=>{ const cells=[]; let cur="",inq=false; for(let i=0;i<line.length;i++){ const ch=line[i]; if(ch==='"'&&line[i+1]==='"'){ cur+='"'; i++; continue } if(ch==='"'){ inq=!inq; continue } if(ch===','&&!inq){ cells.push(cur); cur=""; continue } cur+=ch } cells.push(cur); const row={}; headers.forEach((h,i)=> row[h]=(cells[i]??"").trim()); out.push(row) }); return out }
 async function importCSV(){
+  const districtId=$("#importDistrict").value;
+  if(!districtId){ toast("Choose a district first.",{bg:"#b91c1c"}); return }
   const masterText=$("#csvMaster").value.trim();
   if(!masterText){ toast("Paste Master CSV first.",{bg:"#b91c1c"}); return }
   const rows=parseCSV(masterText);
@@ -238,9 +304,8 @@ async function importCSV(){
     if(!r.HydID) continue;
     try{
       await Api.createHydrant({
-        hydrant_number:r.HydID, label:r.Name||"", latitude:parseFloat(r["Lat (DD)"]||"0")||0, longitude:parseFloat(r["Lon (DD)"]||"0")||0,
-        district:r.District||"", street_address:r.Location||r.Name||"", make:r.Make||"", line_size:r.LineSize||"", top:r.Top||"", caps:r.Caps||"", notes:r.Notes||"",
-        test_needed:(String(r.TestNeeded||"").toLowerCase()==="true")
+        district_id:districtId, hydrant_number:r.HydID, label:r.Name||"", latitude:parseFloat(r["Lat (DD)"]||"0")||0, longitude:parseFloat(r["Lon (DD)"]||"0")||0,
+        street_address:r.Location||r.Name||"", make:r.Make||"", line_size:r.LineSize||"", top:r.Top||"", caps:r.Caps||"", notes:r.Notes||""
       });
       ok++;
     }catch{ fail++ }
@@ -250,8 +315,12 @@ async function importCSV(){
 }
 
 // ===== Boot =====
-function showLogin(){ $("#loginScreen").hidden=false; $("#app").hidden=true }
-function showApp(){ $("#loginScreen").hidden=true; $("#app").hidden=false; goto(location.hash.replace(/^#\/?/,"")||"dashboard"); initFlow(); initMI(); bindNav(); registerSW(); }
+function showLogin(){ $("#loginScreen").style.display=""; $("#app").style.display="none" }
+async function showApp(){
+  $("#loginScreen").style.display="none"; $("#app").style.display="";
+  await loadDistricts();
+  goto(location.hash.replace(/^#\/?/,"")||"dashboard"); initFlow(); initMI(); bindNav(); registerSW();
+}
 
 function initLogin(){
   const submit = async ()=>{
@@ -267,9 +336,9 @@ function initLogin(){
 function registerSW(){
   if(!("serviceWorker" in navigator)) return;
   navigator.serviceWorker.getRegistrations().then(regs=>{
-    regs.forEach(r=>{ if(r.active && /\/sw\.js$/.test(r.active.scriptURL)) r.unregister() });
+    regs.forEach(r=>{ if(r.active && !/\/sw-v4\.js$/.test(r.active.scriptURL)) r.unregister() });
   });
-  navigator.serviceWorker.register("./sw-v3.js").catch(()=>{});
+  navigator.serviceWorker.register("./sw-v4.js").catch(()=>{});
 }
 
 window.addEventListener("DOMContentLoaded",()=>{

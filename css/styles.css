@@ -13,6 +13,7 @@
 .kpi .tile{padding:12px;border:1px solid var(--border);border-radius:14px;background:#fff}
 label{display:block;font-size:12px;color:var(--muted);margin:6px 0 4px}
 input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;font:inherit}
+input[type="checkbox"],input[type="radio"]{width:auto;padding:0}
 .grid{display:grid;gap:10px}.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}
 @media (max-width:760px){.g2,.g3{grid-template-columns:1fr}}
 .btn{background:var(--brand);border:none;color:#fff;padding:10px 12px;border-radius:10px;cursor:pointer}
@@ -20,7 +21,7 @@ input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--border
 .details{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff}.details summary{list-style:none;cursor:pointer;user-select:none;padding:10px 12px;font-weight:700;background:linear-gradient(180deg,#fff,#fafafa);border-bottom:1px solid var(--border)}
 .details .panel{padding:12px}
 .results{border:2px solid var(--brand);background:linear-gradient(180deg,#fff,#fff5f5);border-radius:12px;padding:10px;margin-top:8px}
-.tablewrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;height:60dvh;display:flex;flex-direction:column}
+.tablewrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;height:calc(100dvh - 130px);display:flex;flex-direction:column}
 .tablewrap .controls{position:sticky;top:0;z-index:2;background:linear-gradient(180deg,#fff,rgba(255,255,255,.92));border-bottom:1px solid var(--border);padding:8px;display:flex;gap:8px;align-items:center}
 .tablewrap .head{position:sticky;top:48px;z-index:1;display:grid;grid-template-columns:60px 1fr 1fr 1fr 1fr;gap:6px;padding:8px;background:linear-gradient(180deg,#fafafa,#fff);border-bottom:1px solid var(--border)}
 .tablewrap .rows{overflow:auto;padding:8px;flex:1}

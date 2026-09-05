@@ -5,31 +5,50 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./assets/icons/favicon.ico">
 <title>RedCap</title>
-<link rel="stylesheet" href="./css/styles.css">
+<link rel="stylesheet" href="./css/styles-v2.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head><body>
-<div class="app" id="app">
+<div class="app" id="loginScreen" style="display:none">
+<header class="topbar"><div class="brand"><img src="./assets/icons/icon-32.png" alt="" width="24" height="24"><b>RedCap</b></div></header>
+<main class="content">
+<section class="card" style="max-width:360px;margin:40px auto">
+<h3 style="margin-top:0">Sign in</h3>
+<div><label>Username</label><input id="loginUsername" autocomplete="username"></div>
+<div style="margin-top:8px"><label>Password</label><input id="loginPassword" type="password" autocomplete="current-password"></div>
+<div id="loginError" style="color:#b10a0a;margin-top:8px;display:none"></div>
+<div style="margin-top:12px"><button id="loginSubmit" class="btn">Sign in</button></div>
+</section>
+</main>
+</div>
+<div class="app" id="app" style="display:none">
 <header class="topbar"><div class="brand"><img src="./assets/icons/icon-32.png" alt="" width="24" height="24"><b>RedCap</b></div>
 <nav>
 <button class="tabbtn" data-tab="dashboard">Dashboard</button>
 <button class="tabbtn" data-tab="flow">Flow</button>
 <button class="tabbtn" data-tab="mi">M&amp;I</button>
 <button class="tabbtn" data-tab="hydrants">Hydrants</button>
+<button class="tabbtn" data-tab="hoses">Hoses</button>
 <button class="tabbtn" data-tab="reports">Reports</button>
 <button class="tabbtn" data-tab="settings">Settings</button>
 </nav></header>
 <div class="pagetitle" id="pagetitle">Dashboard</div>
+<div class="contextbar" id="contextbar" style="display:none"></div>
 <main class="content" id="content">
 <section id="tab-dashboard" class="card"><div class="kpi" id="kpi"></div><div id="statusLegend" style="margin-top:12px"></div></section>
 <section id="tab-flow" class="card" hidden>
 <details class="details" id="flow-sec-1" open><summary>1) Basics — required</summary>
-<div class="panel grid g2">
+<div class="panel grid g3">
+<div><label>District</label><select id="flowDistrict"></select></div>
+<div style="position:relative"><label>Hydrant #</label><input id="flowHydrant" autocomplete="off"></div>
+<div><label>Date</label><input id="flowDate" type="date"></div>
 <div><label>Project / Location</label><input id="flowProject"></div>
 <div><label>Inspector</label><input id="flowInspector"></div>
-<div><label>Hydrant #</label><input id="flowHydrant" type="number"></div>
-<div><label>Date</label><input id="flowDate" type="date"></div>
-</div></details>
+</div>
+<div id="flowContext" style="padding:0 12px 12px;color:var(--muted);font-size:13px"></div>
+</details>
 <details class="details" id="flow-sec-2"><summary>2) Pressures</summary>
-<div class="panel grid g3"><div><label>Static</label><input id="flowStatic" type="number"></div><div><label>Residual</label><input id="flowResidual" type="number"></div><div><label>Pitot</label><input id="flowPitot" type="number"></div></div>
+<div class="panel grid g3"><div><label>Static (psi)</label><input id="flowStatic" type="number"></div><div><label>Residual (psi)</label><input id="flowResidual" type="number"></div><div><label>Pitot (psi)</label><input id="flowPitot" type="number"></div></div>
 </details>
 <details class="details" id="flow-sec-3"><summary>3) Outlets</summary>
 <div class="panel"><div class="grid g3"><div><label>Outlet Diameter (in)</label><input id="flowDiameter" type="number" step="0.1" value="2.5"></div>
@@ -40,27 +59,157 @@
 </details>
 <div class="results" id="flowResults" style="display:none"><div class="big">Results</div><div>Total Discharge: <b id="resDischarge">—</b></div><div>Available Fire Flow: <b id="resAFF">—</b></div></div>
 <div style="margin-top:8px"><label>Notes</label><textarea id="flowNotes" rows="3"></textarea></div>
+<div style="margin-top:8px"><label>Photos</label><input id="flowPhotos" type="file" accept="image/*" multiple> <label class="btn secondary" style="display:inline-block;padding:6px 10px;font-size:12px;vertical-align:middle;cursor:pointer">📷 Take Photo<input id="flowPhotosCapture" type="file" accept="image/*" capture="environment" style="display:none"></label><div id="flowPhotoList" style="margin-top:4px;font-size:12px;color:var(--muted)"></div></div>
 </section>
 <section id="tab-mi" class="card" hidden>
 <details class="details" id="mi-sec-1" open><summary>1) Basics — required</summary>
-<div class="panel grid g2"><div><label>Project / Location</label><input id="miProject"></div><div><label>Inspector</label><input id="miInspector"></div><div><label>Hydrant #</label><input id="miHydrant" type="number"></div><div><label>Date</label><input id="miDate" type="date"></div></div></details>
+<div class="panel grid g3"><div><label>District</label><select id="miDistrict"></select></div><div style="position:relative"><label>Hydrant #</label><input id="miHydrant" autocomplete="off"></div><div><label>Date</label><input id="miDate" type="date"></div><div><label>Project / Location</label><input id="miProject"></div><div><label>Inspector</label><input id="miInspector"></div></div>
+<div id="miContext" style="padding:0 12px 12px;color:var(--muted);font-size:13px"></div></details>
 <details class="details" id="mi-sec-2"><summary>2) Status & Notes</summary>
-<div class="panel grid g2"><div><label>Status</label><select id="miStatus"></select></div><div><label>Notes</label><textarea id="miNotes" rows="3"></textarea></div></div></details>
+<div class="panel grid g2"><div><label>Status</label><select id="miStatus"></select></div><div><label>Notes</label><textarea id="miNotes" rows="3"></textarea></div><div style="grid-column:span 2"><label>Photos</label><input id="miPhotos" type="file" accept="image/*" multiple> <label class="btn secondary" style="display:inline-block;padding:6px 10px;font-size:12px;vertical-align:middle;cursor:pointer">📷 Take Photo<input id="miPhotosCapture" type="file" accept="image/*" capture="environment" style="display:none"></label><div id="miPhotoList" style="margin-top:4px;font-size:12px;color:var(--muted)"></div></div></div></details>
 <details class="details" id="mi-sec-3"><summary>3) Inspection Checklist</summary><div class="panel" id="miChecklist"></div></details>
 <details class="details" id="mi-sec-4"><summary>4) Maintenance Tasks</summary><div class="panel" id="miTasks"></div></details>
 </section>
 <section id="tab-hydrants" class="card" hidden>
-<div class="tablewrap"><div class="controls"><label>Search</label><input id="hydrSearch" placeholder="Street, district, #, notes…"><button id="hydrClear" class="btn secondary">Clear</button></div>
-<div class="head"><div>#</div><div>Location</div><div>District</div><div>Make</div><div>Status</div></div><div class="rows" id="hydrRows"></div></div>
+<div class="tablewrap" id="hydrListView"><div class="controls"><label>District</label><select id="hydrDistrict" style="max-width:220px"></select><label>Status</label><select id="hydrStatus" style="max-width:180px"></select><label>Search</label><input id="hydrSearch" placeholder="Street, #, notes…"><button id="hydrClear" class="btn secondary">Clear</button></div>
+<div class="head" id="hydrHead"></div><div class="rows" id="hydrRows"></div></div>
+<div id="hydrDetailView" hidden>
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><button id="hydrBack" class="btn secondary">← Back to list</button><button id="hydrEdit" class="btn secondary">Edit</button><button id="hydrPrint" class="btn secondary">Print</button><button id="hydrRetire" class="btn ghost" style="margin-left:auto">Retire hydrant</button></div>
+<div id="hydrDetailFields" class="card" style="margin-bottom:10px"></div>
+<div id="hydrDetailActions" style="display:flex;gap:8px;margin-bottom:10px"><button id="hydrGoFlow" class="btn">Record Flow Test</button><button id="hydrGoMI" class="btn secondary">Record M&amp;I</button></div>
+<h4 style="margin:0 0 8px">History</h4>
+<div class="histcontrols"><div><label>Year</label><select id="histYear"></select></div><div><label>Month</label><select id="histMonth"></select></div><div style="flex:1"><label>Search</label><input id="histSearch" placeholder="Notes, checklist items…"></div><div><button id="histClear" class="btn secondary">Clear</button></div></div>
+<div id="hydrDetailHistory"></div>
+</div>
 </section>
-<section id="tab-reports" class="card" hidden>Reports coming next.</section>
+<section id="tab-hoses" class="card" hidden>
+<div class="tablewrap" id="hoseListView"><div class="controls"><label>Category</label><select id="hoseCategory" style="max-width:200px"></select><label>In Service</label><select id="hoseInService" style="max-width:160px"><option value="">All</option><option value="true">In service</option><option value="false">Out of service</option></select><label>Search</label><input id="hoseSearch" placeholder="Hose #, location, notes…"><button id="hoseClear" class="btn secondary">Clear</button></div>
+<div class="head" id="hoseHead"></div><div class="rows" id="hoseRows"></div></div>
+<div id="hoseDetailView" hidden>
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><button id="hoseBack" class="btn secondary">← Back to list</button><button id="hoseEdit" class="btn secondary">Edit</button><button id="hoseRetire" class="btn ghost" style="margin-left:auto">Retire hose</button></div>
+<div id="hoseDetailFields" class="card" style="margin-bottom:10px"></div>
+<div id="hoseDetailActions" style="display:flex;gap:8px;margin-bottom:10px"><button id="hoseGoTest" class="btn">Record Test</button></div>
+<h4 style="margin:0 0 8px">Test History</h4>
+<div id="hoseDetailHistory"></div>
+</div>
+</section>
+<section id="tab-reports" class="card" hidden>
+<div style="max-width:260px;margin-bottom:12px" id="rptDistrictWrap"><label>District</label><select id="rptDistrict"></select></div>
+<details class="details" id="rpt-criteria" style="margin-bottom:8px;display:none"><summary>Report Criteria</summary>
+<div class="panel">
+<div id="rptCriteriaLocation" class="grid g3" style="display:none">
+<div style="grid-column:span 2"><label>Street / Road / Area</label><input id="rptLocationSearch" list="rptLocationList" placeholder="e.g. Aimwell Rd, or type to filter"><datalist id="rptLocationList"></datalist></div>
+<div style="display:flex;align-items:end"><button id="rptLocationRun" class="btn">Search</button></div>
+</div>
+<div id="rptCriteriaAdhoc" class="grid g3" style="display:none">
+<div><label>Report name</label><input id="rptCustomName" placeholder="Optional — used as the printed title"></div>
+<div><label>Type</label><select id="rptType"><option value="">Any</option><option value="flow">Flow Test</option><option value="mi">M&amp;I</option></select></div>
+<div><label>Status</label><select id="rptStatus"></select></div>
+<div><label>From</label><input id="rptFrom" type="date"></div>
+<div><label>To</label><input id="rptTo" type="date"></div>
+<div><label>Keyword</label><input id="rptKeyword" placeholder="Search notes &amp; checklist issues"></div>
+<div style="display:flex;align-items:end"><button id="rptRun" class="btn">Run Query</button></div>
+</div>
+<div id="rptCriteriaHose" class="grid g3" style="display:none">
+<div><label>Size</label><select id="rptHoseCategory"></select></div>
+<div><label>Color</label><input id="rptHoseColor" placeholder="e.g. yellow"></div>
+<div><label>Service Status</label><select id="rptHoseService"><option value="">Any</option><option value="true">In service</option><option value="false">Out of service</option></select></div>
+<div><label>Apparatus / Location</label><input id="rptHoseApparatus" placeholder="e.g. Engine 1"></div>
+<div><label>Last Test From</label><input id="rptHoseFrom" type="date"></div>
+<div><label>Last Test To</label><input id="rptHoseTo" type="date"></div>
+<div><label>Group By</label><select id="rptHoseGroupBy"><option value="none">None — show each hose</option><option value="category">Size</option><option value="apparatus_location">Apparatus / Location</option></select></div>
+<div style="display:flex;align-items:end"><button id="rptHoseRun" class="btn">Run Query</button></div>
+</div>
+</div>
+</details>
+<div id="rptSummary" style="margin:10px 0;font-weight:600"></div>
+<div class="rptwrap"><table class="rpttable"><thead id="rptHead"></thead><tbody id="rptRows"></tbody></table></div>
+</section>
+
+<dialog id="bfModal">
+<h3 style="margin-top:0">Blank Form Builder</h3>
+<div class="grid g3">
+<div><label>Form name</label><input id="bfName" placeholder="e.g. Field Flow Test Sheet"></div>
+<div style="grid-column:span 2"><label>Description</label><input id="bfDesc" placeholder="Optional — shown under the title"></div>
+</div>
+<div style="margin-top:8px"><label>Record type</label>
+<select id="bfRecordType"><option value="hydrant">Hydrant</option><option value="hose">Hose</option></select>
+</div>
+<div style="margin-top:8px"><label>Layout</label>
+<select id="bfLayout"><option value="single">Single record (one form per record)</option><option value="grid">Multi-row tally sheet (one row per record)</option></select>
+</div>
+<div id="bfRowsWrap" style="max-width:180px;margin-top:8px;display:none"><label># of blank rows</label><input id="bfRows" type="number" value="20" min="1" max="60"></div>
+<div style="margin-top:10px"><label>Fields to include</label>
+<div id="bfFields" class="grid g3" style="margin-top:4px"></div>
+</div>
+<div style="margin-top:10px"><label>Add Column(s)</label>
+<div style="display:flex;gap:8px;margin-top:4px">
+<input id="bfNewColumnLabel" placeholder="Custom column header, e.g. Crew Signature" style="flex:1">
+<button id="bfAddColumn" type="button" class="btn secondary">+ Add Column</button>
+</div>
+<div id="bfCustomColumns" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px"></div>
+</div>
+<div style="margin-top:14px;display:flex;gap:8px"><button id="bfGenerate" class="btn">Generate Blank Form</button><button id="bfClose" class="btn secondary" type="button">Close</button></div>
+</dialog>
+
+<dialog id="hydrPrintModal">
+<h3 style="margin-top:0">Print Hydrant List</h3>
+<div><label>Include detail records</label>
+<select id="hplDetailMode">
+<option value="none">None — just the list</option>
+<option value="all">All history</option>
+<option value="range">Date range</option>
+<option value="year">Specific year</option>
+</select>
+</div>
+<div id="hplRangeWrap" class="grid g2" style="margin-top:8px;display:none">
+<div><label>From</label><input id="hplFrom" type="date"></div>
+<div><label>To</label><input id="hplTo" type="date"></div>
+</div>
+<div id="hplYearWrap" style="max-width:160px;margin-top:8px;display:none"><label>Year</label><input id="hplYear" type="number" placeholder="e.g. 2026"></div>
+<div style="margin-top:14px;display:flex;gap:8px"><button id="hplGenerate" class="btn">Generate PDF</button><button id="hplClose" class="btn secondary" type="button">Close</button></div>
+</dialog>
+
+<dialog id="hydrMapModal" style="padding:0;border:none;border-radius:10px;overflow:hidden;width:min(560px,92vw)">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border)">
+<h3 id="hydrMapModalTitle" style="margin:0;font-size:15px">Hydrant Location</h3>
+<button id="hydrMapModalClose" class="btn secondary" type="button">Close</button>
+</div>
+<div id="hydrMapModalMap" style="width:100%;height:min(420px,60vh)"></div>
+</dialog>
 <section id="tab-settings" class="card" hidden>
-<details class="details" id="set-statuses"><summary>Statuses</summary><div class="panel" id="statusPanel"></div></details>
+<details class="details" id="set-account" open><summary>Account</summary><div class="panel"><div id="accountInfo" style="margin-bottom:8px"></div><button id="btnLogout" class="btn secondary">Log out</button></div></details>
+<details class="details" id="set-statuses" style="margin-top:8px"><summary>Statuses</summary><div class="panel" id="statusPanel"></div></details>
 <details class="details" id="set-checklist" style="margin-top:8px"><summary>Inspection Checklist Template</summary><div class="panel" id="checklistPanel"></div></details>
 <details class="details" id="set-maint" style="margin-top:8px"><summary>Maintenance Tasks Template</summary><div class="panel" id="maintPanel"></div></details>
+<details class="details" id="set-rules" style="margin-top:8px"><summary>Rules &amp; Requirements</summary>
+<div class="panel">
+<p style="margin-top:0;color:var(--muted);font-size:13px">RedCap's compliance reports (Overdue Flow Tests, No Activity This Year, the dashboard tiles) automatically enforce the first two rules below. Edit, remove, or add to this list to document your department's own flow-test, inspection, and reporting requirements — state fire code citations, water district agreements, ISO/PIAL scheduling, etc.</p>
+<div id="rulesPanel"></div>
+</div>
+</details>
+<details class="details" id="set-howto" style="margin-top:8px"><summary>How to Use RedCap</summary>
+<div class="panel" style="font-size:14px;line-height:1.6">
+<h4 style="margin:0 0 4px">1. Recording a Flow Test</h4>
+<p style="margin:0 0 10px;color:var(--muted)">Go to the <b>Flow</b> tab (or tap the <b>Flow</b> button on a hydrant's row in the Hydrants list). Pick the District, then type the hydrant number — a dropdown will suggest matching hydrants with their location, scoped to the selected district or across all districts if none is picked. Selecting one fills in the location automatically and shows the hydrant's last flow test and any tests already recorded this year. Fill in Date, Inspector, and pressures, then <b>Calculate</b> to get discharge and available fire flow, then <b>Save</b>. District and Inspector carry over to the next entry so you can move quickly hydrant to hydrant.</p>
+<h4 style="margin:0 0 4px">2. Recording an M&amp;I</h4>
+<p style="margin:0 0 10px;color:var(--muted)">Same idea on the <b>M&amp;I</b> tab. Each checklist and maintenance item is a three-way toggle — <b>OK</b>, <b>Issue</b>, or <b>N/A</b> — and marking something an Issue opens a note field for details. Saving updates that hydrant's status automatically based on what was found.</p>
+<h4 style="margin:0 0 4px">3. Finding a Hydrant</h4>
+<p style="margin:0 0 10px;color:var(--muted)">The <b>Hydrants</b> tab lists every hydrant with search, district, and status filters, and sortable columns. Tap a row to open its full detail page — specs, compliance badges, and complete history with its own year/month/search filters. From either the list or the detail page you can jump straight into recording a Flow Test or M&amp;I for that hydrant.</p>
+<h4 style="margin:0 0 4px">4. Compliance Badges</h4>
+<p style="margin:0 0 10px;color:var(--muted)">A hydrant showing <b>⚠ No flow test in N years</b> has gone 6+ years without a flow test that has real recorded readings — legacy "flowed and oiled" entries with no readings don't count. <b>⚠ Nothing recorded this year</b> means no flow test or M&amp;I has been logged for that hydrant so far this calendar year.</p>
+<h4 style="margin:0 0 4px">5. Reports</h4>
+<p style="margin:0 0 10px;color:var(--muted)">The <b>Reports</b> tab has one dropdown, grouped by Hydrants and Hoses, covering every report including Special Report Criteria (build your own hydrant query by type/status/date range/keyword) and Special Hose Criteria (filter hoses by size, color, service status, apparatus/location, or last-test date range, and optionally group into totals by size or apparatus instead of listing each hose). Picking a report that needs criteria opens a "Report Criteria" panel below the dropdown with just the fields that report uses — the district filter only shows for hydrant reports, since hoses aren't districted. Print, Export CSV, and Blank Form Builder are tucked under the <b>⋯</b> button next to Reset, which always stays visible.</p>
+<h4 style="margin:0 0 4px">6. Printing</h4>
+<p style="margin:0 0 10px;color:var(--muted)">Printable PDFs are available from several places: a full record sheet from any hydrant's detail page, a blank fillable flow-test form from the Flow tab, any report from the Reports toolbar, a custom blank form you design yourself (Blank Form Builder, in Reports), and the hydrant list itself — with the option to include each hydrant's full history, or just a date range or year.</p>
+<h4 style="margin:0 0 4px">7. Working Offline</h4>
+<p style="margin:0 0 10px;color:var(--muted)">If a Flow or M&amp;I save fails because of a lost connection, it's kept on the device and retried automatically the next time the app loads with a connection.</p>
+</div>
+</details>
 <details class="details" id="set-import" style="margin-top:8px"><summary>Import CSV (Master & Detail)</summary>
 <div class="panel">
-<div class="grid g2"><div><h4>Master (Hydrants)</h4><textarea id="csvMaster" rows="8"></textarea></div><div><h4>Detail (Flow & M&amp;I)</h4><textarea id="csvDetail" rows="8"></textarea></div></div>
+<div><label>District (applies to this import)</label><select id="importDistrict"></select></div>
+<div class="grid g2" style="margin-top:8px"><div><h4>Master (Hydrants)</h4><textarea id="csvMaster" rows="8"></textarea></div><div><h4>Detail (Flow & M&amp;I)</h4><textarea id="csvDetail" rows="8"></textarea></div></div>
 <div class="grid g3" style="margin-top:8px">
 <div><label>On import</label><select id="importMode"><option value="merge">Merge</option><option value="replace">Replace</option></select></div>
 <div><label>Lock imported years?</label><select id="importLock"><option value="none">No</option><option value="ask">Ask</option><option value="yes">Yes</option></select></div>
@@ -71,9 +220,9 @@
 </section>
 </main>
 <footer class="bottombar hidden" id="bottombar"><div class="helper">Flow actions</div>
-<div style="display:flex;gap:8px"><button id="flowCalc" class="btn">Calculate</button><button id="flowSave" class="btn secondary">Save</button><button id="flowClear" class="btn ghost">Clear</button></div>
+<div style="display:flex;gap:8px"><button id="flowCalc" class="btn">Calculate</button><button id="flowSave" class="btn secondary">Save</button><button id="flowPrintBlank" class="btn secondary">Print Blank Form</button><button id="flowClear" class="btn ghost">Clear</button></div>
 </footer>
 </div>
 <div class="toastbox" id="toastbox" aria-live="polite"></div>
-<script type="module" src="./js/app.js"></script>
+<script type="module" src="./js/app-v5.js"></script>
 </body></html>
