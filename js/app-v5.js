@@ -418,9 +418,11 @@ function hydrCellHTML(h,field){
 // "Show on Map" pattern: a tiny locked flyout on hover, plus a real interactive
 // map on click). Loaded via Leaflet CDN in index.html -- see comment there for
 // why that's an acceptable tradeoff for this offline-tolerant app: the hover
-// preview needs live satellite tiles regardless, so it isn't meaningfully more
+// preview needs live map tiles regardless, so it isn't meaningfully more
 // "offline" whether Leaflet itself ships locally or from a CDN.
-const HYDR_TILE_URL="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+// Standard street map, not satellite -- matches PrePlans' main map's own
+// default base layer (MapPanel.tsx).
+const HYDR_TILE_URL="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const HYDR_FLYOUT_W=260, HYDR_FLYOUT_H=180;
 // Zoomed out one notch from a typical single-point preview (14, not 16+) --
 // a lone hydrant needs surrounding street context to actually place it, unlike
@@ -462,7 +464,7 @@ function showHydrantMapModal(h){
   $("#hydrMapModal").showModal();
   if(!hydrModalMap){
     hydrModalMap=L.map("hydrMapModalMap").setView([h.latitude,h.longitude],HYDR_PREVIEW_ZOOM);
-    L.tileLayer(HYDR_TILE_URL).addTo(hydrModalMap);
+    L.tileLayer(HYDR_TILE_URL,{attribution:"&copy; OpenStreetMap contributors"}).addTo(hydrModalMap);
     hydrModalMarker=L.circleMarker([h.latitude,h.longitude],{radius:9,color:"#b10a0a",weight:2,fillColor:"#e34a4a",fillOpacity:.9}).addTo(hydrModalMap);
   } else {
     hydrModalMap.setView([h.latitude,h.longitude],HYDR_PREVIEW_ZOOM);
