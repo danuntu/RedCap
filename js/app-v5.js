@@ -2113,7 +2113,7 @@ function registerSW(){
 // showing its own login form. Opened directly/standalone (not in an iframe,
 // or no handoff message ever arrives), everything behaves exactly as before —
 // this doesn't change RedCap's ability to run entirely on its own.
-const TRUSTED_EMBED_PARENTS = ["https://preplans.danuntu.com", "http://localhost:3080"];
+const TRUSTED_EMBED_PARENTS = ["https://preplans.danuntu.com", "https://fdp.danuntu.com", "http://localhost:3080"];
 function initEmbedHandoff(){
   if(window === window.top) return; // not embedded, nothing to do
   window.addEventListener("message", e=>{
